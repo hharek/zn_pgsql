@@ -1,0 +1,17 @@
+Class for php to work with PostgreSQL.
+
+Supports cache and query with parameters.
+
+REQUIREMENTS:
+- PHP 5.2 and up
+- PHP-module pgsql (http://php.net/pgsql)
+
+-------------------------------------------------------------------------------------
+
+Класс на PHP для работы с СУБД PostgreSQL.
+
+Поддерживает кэш запросов и запросы с параметрами.
+
+Требования:
+- PHP 5.2 и выше
+- PHP-модуль pgsql (http://php.net/pgsql)
