@@ -7,7 +7,7 @@
  * @author		Sergeev Denis <hharek@yandex.ru>
  * @copyright	2011 Sergeev Denis
  * @license		https://github.com/hharek/zn_pgsql/wiki/MIT-License MIT License
- * @version		0.1.1
+ * @version		0.2.1
  * @link		https://github.com/hharek/zn_pgsql/
  */
 class ZN_Pgsql
@@ -74,7 +74,14 @@ class ZN_Pgsql
 	 * 
 	 * @var string
 	 */
-	private $_schema;
+	private $_schema = "public";
+	
+	/**
+	 * Текущая схема в search_path
+	 * 
+	 * @var string
+	 */
+	private $_schema_current = "public";
 
 	/**
 	 * Использовать кэширование
@@ -160,6 +167,10 @@ class ZN_Pgsql
 
 		/* Возможность клонировать не создавая нового соединения */
 		$this->_db_conn = &$this->_db_conn;
+		
+		/* При клонировании сохранять обозначение текущей схемы */
+		$this->_schema_current = &$this->_schema_current;
+		
 
 		return true;
 	}
@@ -287,25 +298,13 @@ class ZN_Pgsql
 		{
 			throw new Exception("Схема не задана.", 41);
 		}
-
-		if ($schema != $this->_schema)
-		{
-			if($this->is_connect())
-			{
-				$query = "SET search_path TO '" . $this->escape($schema) . "'";
-				$result = @pg_query($this->_db_conn, $query);
-				if ($result === false)
-				{
-					throw new Exception("Схема указана неверно. ".pg_last_error($this->_db_conn), 42);
-				}
-				pg_free_result($result);
-			}
-			
-			$this->_schema = $schema;
-		}
+		
+		$this->_schema = $schema;
 
 		return true;
 	}
+	
+	
 
 	/**
 	 * Вернуть схему
@@ -428,7 +427,8 @@ class ZN_Pgsql
 
 		/* Запрос */
 		$this->connect();
-
+		$this->_query_schema();
+		
 		$result = @pg_query($this->_db_conn, $query);
 		if ($result === false)
 		{
@@ -516,6 +516,7 @@ class ZN_Pgsql
 
 		/* Запрос */
 		$this->connect();
+		$this->_query_schema();
 
 		$result = @pg_query($this->_db_conn, $query);
 		if ($result === false)
@@ -607,6 +608,7 @@ class ZN_Pgsql
 
 		/* Запрос */
 		$this->connect();
+		$this->_query_schema();
 
 		$result = @pg_query($this->_db_conn, $query);
 		if ($result === false)
@@ -699,6 +701,7 @@ class ZN_Pgsql
 
 		/* Запрос */
 		$this->connect();
+		$this->_query_schema();
 
 		$result = @pg_query($this->_db_conn, $query);
 		if ($result === false)
@@ -786,7 +789,8 @@ class ZN_Pgsql
 
 		/* Запрос */
 		$this->connect();
-
+		$this->_query_schema();
+		
 		$result = @pg_query($this->_db_conn, $query);
 		if ($result === false)
 		{
@@ -844,6 +848,7 @@ class ZN_Pgsql
 
 		/* Запрос */
 		$this->connect();
+		$this->_query_schema();
 
 		$result = @pg_query($this->_db_conn, $query);
 		if ($result === false)
@@ -1006,11 +1011,11 @@ SQL;
 	private function _get_query_param($query, $param)
 	{
 		/*** Поиск параметров в запросе ***/
-		if (empty($param) or (!is_array($param) and !is_scalar($param)))
+		if (!is_array($param) and !is_scalar($param))
 		{
 			throw new Exception("Параметры запроса заданы неверно.", 141);
 		}
-
+		
 		if (is_scalar($param))
 		{
 			$param = array($param);
@@ -1103,7 +1108,32 @@ SQL;
 			}
 			else
 			{
-				$replace[] = "'" . $this->escape($param[$val['number'] - 1]) . "'";
+				/* Не экранировать NULL */
+				if(is_null($param[$val['number'] - 1]))
+				{
+					$replace[] = "NULL";
+				}
+				/* Не экранировать булёвое значение */
+				elseif(is_bool($param[$val['number'] - 1]))
+				{
+					if($param[$val['number'] - 1] === true)
+					{
+						$replace[] = "true";
+					}
+					else
+					{
+						$replace[] = "false";
+					}
+				}
+				elseif (is_int($param[$val['number'] - 1]) or is_float($param[$val['number'] - 1])) 
+				{
+					$replace[] = $param[$val['number'] - 1];
+				}
+				/* Остальное экранировать */
+				else
+				{
+					$replace[] = "'" . $this->escape($param[$val['number'] - 1]) . "'";
+				}
 			}
 		}
 
@@ -1452,6 +1482,29 @@ SQL;
 			}
 		}
 
+		return true;
+	}
+	
+	/**
+	 * Запрос на нужную схему
+	 * 
+	 * @return boolean 
+	 */
+	private function _query_schema()
+	{
+		if ($this->_schema != $this->_schema_current and $this->is_connect())
+		{
+			$query = "SET \"search_path\" TO '" . $this->escape($this->_schema) . "'";
+			$result = @pg_query($this->_db_conn, $query);
+			if ($result === false)
+			{
+				throw new Exception("Схема указана неверно. ".pg_last_error($this->_db_conn), 42);
+			}
+			pg_free_result($result);
+			
+			$this->_schema_current = $this->_schema;
+		}
+		
 		return true;
 	}
 }
