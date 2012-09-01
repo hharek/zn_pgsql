@@ -1125,6 +1125,7 @@ SQL;
 						$replace[] = "false";
 					}
 				}
+				/* Не экранировать числа */
 				elseif (is_int($param[$val['number'] - 1]) or is_float($param[$val['number'] - 1])) 
 				{
 					$replace[] = $param[$val['number'] - 1];
@@ -1136,7 +1137,10 @@ SQL;
 				}
 			}
 		}
-
+		
+		$search = array_reverse($search);
+		$replace = array_reverse($replace);
+		
 		$query = str_replace($search, $replace, $query);
 
 		return $query;
