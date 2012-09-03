@@ -491,7 +491,7 @@ class ZN_Pgsql
 		$cache_time = trim($cache_time);
 		
 		/* Берём данные из кэша */
-		if ($this->_cache == true and $is_modify == false and is_file($this->_cache_dir . "/query/" . $this->_get_cache_file_name_query($query, "assoc")))
+		if (!empty($tables) and $this->_cache == true and $is_modify == false and is_file($this->_cache_dir . "/query/" . $this->_get_cache_file_name_query($query, "assoc")))
 		{
 			$cache_result = unserialize(file_get_contents($this->_cache_dir . "/query/" . $this->_get_cache_file_name_query($query, "assoc")));
 			if(time() <= $cache_result['time'])
@@ -583,7 +583,7 @@ class ZN_Pgsql
 		$cache_time = trim($cache_time);
 
 		/* Берём данные из кэша */
-		if ($this->_cache == true and $is_modify == false and is_file($this->_cache_dir . "/query/" . $this->_get_cache_file_name_query($query, "column")))
+		if (!empty($tables) and $this->_cache == true and $is_modify == false and is_file($this->_cache_dir . "/query/" . $this->_get_cache_file_name_query($query, "column")))
 		{
 			$cache_result = unserialize(file_get_contents($this->_cache_dir . "/query/" . $this->_get_cache_file_name_query($query, "column")));
 			if(time() <= $cache_result['time'])
@@ -676,7 +676,7 @@ class ZN_Pgsql
 		$cache_time = trim($cache_time);
 
 		/* Берём данные из кэша */
-		if ($this->_cache == true and $is_modify == false and is_file($this->_cache_dir . "/query/" . $this->_get_cache_file_name_query($query, "line")))
+		if (!empty($tables) and $this->_cache == true and $is_modify == false and is_file($this->_cache_dir . "/query/" . $this->_get_cache_file_name_query($query, "line")))
 		{
 			$cache_result = unserialize(file_get_contents($this->_cache_dir . "/query/" . $this->_get_cache_file_name_query($query, "line")));
 			if(time() <= $cache_result['time'])
@@ -764,7 +764,7 @@ class ZN_Pgsql
 		$cache_time = trim($cache_time);
 
 		/* Берём данные из кэша */
-		if ($this->_cache == true and $is_modify == false and is_file($this->_cache_dir . "/query/" . $this->_get_cache_file_name_query($query, "one")))
+		if (!empty($tables) and $this->_cache == true and $is_modify == false and is_file($this->_cache_dir . "/query/" . $this->_get_cache_file_name_query($query, "one")))
 		{
 			$cache_result = unserialize(file_get_contents($this->_cache_dir . "/query/" . $this->_get_cache_file_name_query($query, "one")));
 			if(time() <= $cache_result['time'])
