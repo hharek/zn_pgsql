@@ -1,6 +1,6 @@
 Class for php to work with PostgreSQL.
 
-Supports cache and query with parameters.
+Supports caching of queries using files and memcache.
 
 REQUIREMENTS:
 - PHP 5.2 and up
@@ -10,7 +10,7 @@ REQUIREMENTS:
 
 Класс на PHP для работы с СУБД PostgreSQL.
 
-Поддерживает кэш запросов и запросы с параметрами.
+Поддерживает кэширование запросов с помощью файлов и memcache.
 
 Требования:
 - PHP 5.2 и выше

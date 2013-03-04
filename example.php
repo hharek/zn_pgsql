@@ -1,141 +1,138 @@
 <?php
-
+header("Content-Type: text/plain");
 require_once ("zn_pgsql.php");
 
 try
 {
-	/*** Соединение ***/
-	$pgsql = new ZN_Pgsql("localhost", "user", "pass", "dbname");	   // классическое соединение
-	$pgsql = new ZN_Pgsql("localhost", "user", "pass", "dbname", "main_schema");   // соединение с схемой по умолчанию main_schema
-	$pgsql = new ZN_Pgsql("localhost", "user", "pass", "dbname", "public", null, 15432); // соединение по порту 15432
-	$pgsql = new ZN_Pgsql("localhost", "user", "pass", "dbname", "public", "/site1/cache"); // соединение с использованием кэша
-	$pgsql = new ZN_Pgsql("localhost", "user", "pass", "dbname", "public", null, 5432, true); // постоянное соединение
-	$pgsql = new ZN_Pgsql("localhost", "user", "pass", "dbname", "public", null, 5432, false, true); // соединение через SSL
+	/*-------------------- Общее ---------------------*/
+	$db = new ZN_Pgsql("localhost", "user", "pass", "dbname");  /* классическое соединение */
+	$db = new ZN_Pgsql("localhost", "user", "pass", "dbname", "main"); /* соединение со схемой по умолчанию main */
+	$db = new ZN_Pgsql("localhost", "user", "pass", "dbname", "public", 15432); /* соединение по порту 15432 */
+	$db = new ZN_Pgsql("localhost", "user", "pass", "dbname", "public", 5432, true); /* постоянное соединение */
+	$db = new ZN_Pgsql("localhost", "user", "pass", "dbname", "public", 5432, false, "require"); /* соединение через SSL */
 	
-	$pgsql = clone $pgsql_new;					// клонирование объекта без создания нового соединения
-	$pgsql_new->set_schema("main_schema");		// изменение схемы для нового объекта
-
-	$pgsql->connect();		// процесс соединения
-	$pgsql->reconnect();	   // пересоединение
-
-	if ($pgsql->is_connect())	  // проверка соединения
+	$db_main = clone $db;				/* клонирование объекта без создания нового соединения */
+	$db_main->set_schema("main");		/* изменение схемы на main для нового объекта */
+	
+	$db->connect();						/* соединение с СУБД, по умолчанию соединение будет создаваться только когда будет выполнятся хоть один запрос */
+	$db->reconnect();					/* повторное соединение */
+	
+	if ($db->is_connect())				/* проверка соединения */
 	{
-		echo "Соединение установлено";
+		echo "Соединение установлено.\n\n";
 	}
 
-	/*** Общие ***/
-	$pgsql->set_schema("main_schema");	// сменить схему по умолчанию
-	echo $pgsql->get_schema();	  // узнать текущую схему
-	
-	echo $pgsql->escape("Строка ' символами для ' экранирования");  // Экранирование
+	$db->set_schema("main");			/* сменить схему по умолчанию на main */
+	echo "Текущая схема: ".$db->get_schema().".\n\n";				/* узнать текущую схему */
 
-	if ($pgsql->is_table("news"))		  // Поиск таблицы
+	
+	/*---------------- Работа с таблицами ---------------*/
+	
+	/* Множественный запрос */
+	$query =
+<<<SQL
+CREATE SEQUENCE "category_seq" START 1;
+CREATE TABLE "category"
+(
+  "ID" integer NOT NULL DEFAULT nextval('category_seq'),
+  "Name" character varying(255) NOT NULL,
+  CONSTRAINT "category_PK" PRIMARY KEY ("ID" ),
+  CONSTRAINT "category_UN_Name" UNIQUE ("Name" )
+);
+ALTER SEQUENCE "category_seq" OWNED BY "category"."ID";
+
+CREATE SEQUENCE "tovar_seq" START 1;
+CREATE TABLE "tovar"
+(
+  "ID" integer NOT NULL DEFAULT nextval('tovar_seq'),
+  "Name" character varying(255) NOT NULL,
+  "Count" integer NOT NULL DEFAULT 0,
+  "Price" numeric(15,2) NOT NULL DEFAULT 0.00,
+  "Category_ID" integer,
+  CONSTRAINT "tovar_PK" PRIMARY KEY ("ID"),
+  CONSTRAINT "tovar_FK_Category_ID" FOREIGN KEY ("Category_ID")
+      REFERENCES "category" ("ID"),
+  CONSTRAINT "tovar_UN_Name" UNIQUE ("Name")
+);
+ALTER SEQUENCE "tovar_seq" OWNED BY "tovar"."ID";
+SQL;
+	$db->multi_query($query);					
+	
+	/* Поиск таблицы */
+	if ($db->is_table("category"))			
 	{
-		$pgsql->query("DROP TABLE \"news\"");
+		echo "Таблица category существует.\n\n";
 	}
 	
-	if($pgsql->is_column("news", "Name"))		// Поиск столбца
+	/* Поиск столбца */
+	if($db->is_column("tovar", "Name"))
 	{
-		$pgsql->query("CREATE UNIQUE INDEX \"news_Name_index\" ON \"news\"(\"Name\")");
+		echo "Столбец tovar.Name существует.\n\n";
 	}
-
+	
+	/* Вставка данных в таблицу */
+	$db->insert("category", array("Name" => "Категория 1"));
+	$db->insert("category", array("Name" => "Категория 2"));
+	$db->insert("category", array("Name" => "Категория 3"));
+	
+	$db->insert("tovar", array("Name" => "Товар 1", "Count" => 10, "Price" => 10.12, "Category_ID" => 1));
+	$db->insert("tovar", array("Name" => "Товар 2", "Count" => 3, "Price" => 201.00, "Category_ID" => 1));
+	
+	/* Изменение данных в таблице */
+	$db->update("category", array("Name" => "Категория 2 изменена"), array("ID" => 2));
+	
+	/* Удалить строку из таблицы */
+	$db->delete("category", array("ID" => 3));
+	
+	/* Обычный запрос */
+	$tovar_name = $db->escape("Товар' с 'символомами");
+	$query = 
+<<<SQL
+INSERT INTO "tovar" ("Name", "Count", "Price", "Category_ID")
+VALUES ('{$tovar_name}', 10, 23.11, 1)
+SQL;
+	$db->query($query);
+	
+	/* Запрос с параметрами */
+	$query = 
+<<<SQL
+INSERT INTO "tovar" ("Name", "Count", "Price", "Category_ID")
+VALUES ($1, $2, $3, $4)
+SQL;
+	$db->query($query, array("Товар' 4", 11, 240, 1));
+	
 	/*** Запросы ***/
-	$query =
-<<<SQL
-UPDATE "news" 
-SET "Name" = 'Тест'
-WHERE "ID" = '1'
-SQL;
-	$pgsql->query($query);	// Запрос
-
-	$query =
-<<<SQL
-UPDATE "news" 
-SET "Name" = 'Тест'
-WHERE "ID" = $1
-SQL;
-	$pgsql->query($query, $_GET['id']);		// Запрос с параметрами (предпочтилен). $1 = 'escape($_GET['id'])'
-
-	$query =
-<<<SQL
-SELECT "ID", "Name"
-FROM "news"
-SQL;
-	$array = $pgsql->query_assoc($query);	// Запрос с возвращением ассоциативного массива
-
-	$query =
-<<<SQL
-SELECT "Name"
-FROM "news"
-SQL;
-	$array = $pgsql->query_column($query);	// Запрос с возвращение столбца
-
-	$query =
-<<<SQL
-SELECT *
-FROM "news"
-WHERE "ID" = $1
-OR "Name" = $2
-LIMIT 1
-SQL;
-	$array = $pgsql->query_line($query, array($_GET['id'], "Тест"));	// Запрос с возвращение первой строки
-
-	$query =
-<<<SQL
-SELECT COUNT(*) as count
-FROM "news"
-SQL;
-	$count = $pgsql->query_one($query);		// Запрос с возвращение результат из первой ячейки
-
-	$pgsql->multi_query(file_get_contents("news.sql"));	// Множественный запрос
-
-	
-	
-	/*** Кэширование ***/
-	$pgsql = new ZN_Pgsql("localhost", "user", "pass", "dbname");
-	$pgsql->cache_enable("/site1/cache");		// Включить кэширование
-	
-	$pgsql = new ZN_Pgsql("localhost", "user", "pass", "dbname", "public", "/site1/cache");
-	
 	$query = 
 <<<SQL
-SELECT "ID", "Name"
-FROM "news"
-SQL;
-	$news = $pgsql->query_assoc($query, null, "news");	// выполняется запрос и создаётся кэш
-	var_dump($pgsql->is_connect());		// true
-	
-	$news = $pgsql->query_assoc($query, null, "news");	// данные взяты из кэша
-	var_dump($pgsql->is_connect());		// false
-
-	$query_update = 
-<<<SQL
-UPDATE "news"
-SET "Name" = 'Тест'
-WHERE "ID" = '1'
+SELECT "t"."Name", "t"."Price", "c"."Name" as "Category_Name"
+FROM "tovar" as "t", "category" as "c"
+WHERE "t"."Category_ID" = "c"."ID"
 SQL;
 	
-	$pgsql->query($query_update);						// выполняется запрос без учёта кэша
-	$news = $pgsql->query_assoc($query, 6, "news");		// неверный результат
+	/* Запросы которые возвращают результат */
+	$assoc = $db->query_assoc($query);			/* Массив ассоциативных массивов */
+	var_dump($assoc); echo "\n\n\n";
 	
-	$pgsql->query($query_update, null, "news", true);	// выполняется запрос и стирается кэш относящийся к таблице news
-	$news = $pgsql->query_assoc($query, 6, "news");		// правильный результат
+	$column = $db->query_column($query);		/* Список */
+	var_dump($column); echo "\n\n\n";
 	
-	$query = 
-<<<SQL
-SELECT "ID", "Name"
-FROM "news"
-WHERE EXTRACT(MONTH FROM "Date") = EXTRACT(MONTH FROM NOW())
-ORDER BY "Date" DESC
-SQL;
-	$pgsql->query_assoc($query, null, "news", false, "+10 day");	// указание времени хранения кэша (10 дней)
-	$pgsql->query_assoc($query, null, "news", false, "01.01.2012");	// указание времени хранения кэша (до 01.01.2012)
+	$line = $db->query_line($query);			/* Ассоциативный массив */
+	var_dump($line); echo "\n\n\n";
 	
-	$pgsql->cache_disable();	// отключить кэширование
+	$one = $db->query_one($query);				/* Строка */
+	var_dump($one); echo "\n\n\n";
 	
+	$object = $db->query_object($query);		/* Объект */
+	var_dump($object); echo "\n\n\n";
+	
+	$object_ar = $db->query_object_ar($query);	/* Массив объектов */
+	var_dump($object_ar); echo "\n\n\n";
+	
+	$resource = $db->query_result($query);		/* Ресурс результата запроса */
+	var_dump($resource); 
 }
 catch (Exception $e)
 {
-	echo "Код: " . $e->getCode() . ". " . $e->getMessage();
+	echo "Ошибка. Код: " . $e->getCode() . ". Сообщение: " . $e->getMessage();
 }
 ?>
